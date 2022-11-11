@@ -140,6 +140,55 @@ Port 30330 accepts request on each node and then forward the request to port 808
 ![Output 2](k8s/o-np2.png)
 
 ## LoadBalancer
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-react
+  annotations:
+    metallb.universe.tf/address-pool: 
+spec:
+  externalTrafficPolicy: Local
+  type: LoadBalancer
+  selector:
+    app: react-lb
+  ports:
+  - protocol: TCP
+    port: 9000
+    targetPort: 80
+```
+Creating BGPConfiguration with cidr blocks of load balancer IPs to advertise
+```
+apiVersion: projectcalico.org/v3
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  serviceLoadBalancerIPs:
+  - cidr: 192.168.10.0/16
+```
+MetalLB to provision IPs for load balancing
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: bgp
+      addresses:
+      - 192.168.10.0/24
+```
+
+### Result
+The **External IP** for loadbalancer service is still pending and not working.
+![load balancer not working](k8s/failure.png)
+
+### Root of Failure
+Conflict between Calico and MetalLB networks architecture. When Calico has a session established to BGP router, MetalLB can not establish its session, rejected by BJP conflict resolution algorithm.I tried 
 
 # demo-project
 > node v14.21.1,
